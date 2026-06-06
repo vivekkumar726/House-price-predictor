@@ -1,0 +1,46 @@
+{
+  "best_model": "Ridge",
+  "results": {
+    "Ridge": {
+      "RMSE": 1366591.43,
+      "R2": 0.6305,
+      "MAE": 987569.33
+    },
+    "RandomForest": {
+      "RMSE": 1410243.31,
+      "R2": 0.6065,
+      "MAE": 1057785.2
+    },
+    "GradientBoosting": {
+      "RMSE": 1398961.0,
+      "R2": 0.6128,
+      "MAE": 1033267.37
+    }
+  },
+  "num_features": [
+    "area",
+    "bedrooms",
+    "bathrooms",
+    "stories",
+    "mainroad",
+    "guestroom",
+    "basement",
+    "hotwaterheating",
+    "airconditioning",
+    "parking",
+    "prefarea",
+    "area_per_bedroom",
+    "total_rooms"
+  ],
+  "cat_features": [
+    "furnishingstatus"
+  ],
+  "binary_cols": [
+    "mainroad",
+    "guestroom",
+    "basement",
+    "hotwaterheating",
+    "airconditioning",
+    "prefarea"
+  ]
+}
