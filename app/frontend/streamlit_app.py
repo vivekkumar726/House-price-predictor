@@ -16,6 +16,8 @@ API_URL = os.getenv(
     "API_URL",
     "https://house-price-predictor-qskr.onrender.com"
 )
+st.write(API_URL)
+st.write("Loading model info...")
 
 
 # ── Helper ───────────────────────────────────────────────────────────────────
@@ -32,7 +34,10 @@ def format_inr(amount: float) -> str:
 @st.cache_data
 def load_model_info():
     try:
-        response = requests.get(f"{API_URL}/info")
+        response = requests.get(
+            f"{API_URL.rstrip('/')}/info",
+            timeout=15
+        )
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -105,8 +110,9 @@ if st.button("🔍 Predict Price", type="primary", use_container_width=True):
     try:
 
         response = requests.post(
-            f"{API_URL}/predict",
-            json=payload
+            f"{API_URL.rstrip('/')}/predict",
+            json=payload,
+            timeout=30
         )
 
         response.raise_for_status()
