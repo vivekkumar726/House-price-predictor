@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import joblib
-import json
+import requests
 import os
 
 # ── Page config ──────────────────────────────────────────────────────────────
@@ -13,22 +12,11 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── Load model ───────────────────────────────────────────────────────────────
-BASE       = os.path.dirname(os.path.abspath(__file__))
-MODEL_PATH = os.path.join(BASE, "..", "model", "pipeline.pkl")
-INFO_PATH  = os.path.join(BASE, "..", "model", "model_info.json")
+API_URL = os.getenv(
+    "API_URL",
+    "http://127.0.0.1:8000"
+)
 
-@st.cache_resource
-def load_model():
-    return joblib.load(MODEL_PATH)
-
-@st.cache_data
-def load_info():
-    with open(INFO_PATH) as f:
-        return json.load(f)
-
-pipeline   = load_model()
-model_info = load_info()
 
 # ── Helper ───────────────────────────────────────────────────────────────────
 def format_inr(amount: float) -> str:
@@ -40,6 +28,19 @@ def format_inr(amount: float) -> str:
         return f"₹{amount/100_000:.2f} L"
     else:
         return f"₹{amount:,}"
+    
+@st.cache_data
+def load_model_info():
+    try:
+        response = requests.get(f"{API_URL}/info")
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        st.error(f"Cannot connect to FastAPI server.\n\n{e}")
+        st.stop()
+
+
+model_info = load_model_info()
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 st.sidebar.image("https://img.icons8.com/fluency/96/home.png", width=72)
@@ -83,48 +84,96 @@ with col3:
 
 # ── Predict ───────────────────────────────────────────────────────────────────
 st.divider()
+
 if st.button("🔍 Predict Price", type="primary", use_container_width=True):
 
-    area_per_bedroom = area / max(bedrooms, 1)
-    total_rooms      = bedrooms + bathrooms
+    payload = {
+        "area": area,
+        "bedrooms": bedrooms,
+        "bathrooms": bathrooms,
+        "stories": stories,
+        "mainroad": mainroad,
+        "guestroom": guestroom,
+        "basement": basement,
+        "hotwaterheating": hotwaterheating,
+        "airconditioning": airconditioning,
+        "parking": parking,
+        "prefarea": prefarea,
+        "furnishingstatus": furnishing
+    }
 
-    input_df = pd.DataFrame([{
-        'area':             area,
-        'bedrooms':         bedrooms,
-        'bathrooms':        bathrooms,
-        'stories':          stories,
-        'mainroad':         int(mainroad),
-        'guestroom':        int(guestroom),
-        'basement':         int(basement),
-        'hotwaterheating':  int(hotwaterheating),
-        'airconditioning':  int(airconditioning),
-        'parking':          parking,
-        'prefarea':         int(prefarea),
-        'furnishingstatus': furnishing,
-        'area_per_bedroom': area_per_bedroom,
-        'total_rooms':      total_rooms,
-    }])
+    try:
 
-    pred = float(pipeline.predict(input_df)[0])
-    low  = pred * 0.90
-    high = pred * 1.10
+        response = requests.post(
+            f"{API_URL}/predict",
+            json=payload
+        )
 
-    r1, r2, r3 = st.columns(3)
-    r1.metric("💰 Estimated Price", format_inr(pred))
-    r2.metric("📉 Low Estimate",    format_inr(low))
-    r3.metric("📈 High Estimate",   format_inr(high))
+        response.raise_for_status()
 
-    st.success(
-        f"🏡 Estimated market value: **{format_inr(pred)}** "
-        f"(±10% range: {format_inr(low)} – {format_inr(high)})"
-    )
+        result = response.json()
 
-    with st.expander("📋 Input Summary"):
-        display = input_df.copy()
-        bool_cols = ['mainroad','guestroom','basement','hotwaterheating','airconditioning','prefarea']
-        for c in bool_cols:
-            display[c] = display[c].map({1: 'Yes', 0: 'No'})
-        st.dataframe(display.T.rename(columns={0: "Value"}), use_container_width=True)
+        pred = result["predicted_price"]
+        low = result["price_low"]
+        high = result["price_high"]
+
+        r1, r2, r3 = st.columns(3)
+
+        r1.metric(
+            "💰 Estimated Price",
+            format_inr(pred)
+        )
+
+        r2.metric(
+            "📉 Low Estimate",
+            format_inr(low)
+        )
+
+        r3.metric(
+            "📈 High Estimate",
+            format_inr(high)
+        )
+
+        st.success(
+            f"🏡 Estimated market value: **{result['formatted']}** "
+            f"(±10% range: {format_inr(low)} – {format_inr(high)})"
+        )
+
+        with st.expander("📋 Input Summary"):
+
+            display = pd.DataFrame([payload])
+
+            bool_cols = [
+                "mainroad",
+                "guestroom",
+                "basement",
+                "hotwaterheating",
+                "airconditioning",
+                "prefarea"
+            ]
+
+            for c in bool_cols:
+                display[c] = display[c].map({
+                    True: "Yes",
+                    False: "No"
+                })
+
+            st.dataframe(
+                display.T.rename(columns={0: "Value"}),
+                use_container_width=True
+            )
+
+    except requests.exceptions.ConnectionError:
+
+        st.error(
+            "❌ Cannot connect to FastAPI server.\n\n"
+            "Start it using:\n\n"
+            "python -m uvicorn app.api.main:app --reload"
+        )
+
+    except Exception as e:
+
+        st.error(str(e))
 
 # ── Model comparison ──────────────────────────────────────────────────────────
 st.divider()
