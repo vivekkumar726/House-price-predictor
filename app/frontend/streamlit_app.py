@@ -14,7 +14,7 @@ st.set_page_config(
 
 API_URL = os.getenv(
     "API_URL",
-    "https://house-price-predictor-qskr.onrender.com/"
+    "https://house-price-predictor-qskr.onrender.com"
 )
 
 
