@@ -14,7 +14,7 @@ st.set_page_config(
 
 API_URL = os.getenv(
     "API_URL",
-    "https://house-price-predictor-qskr.onrender.com"
+    "http://127.0.0.1:8000"
 )
 st.write(API_URL)
 st.write("Loading model info...")
